@@ -1,0 +1,44 @@
+plugins {
+    id 'java'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'org.lootgrems.bot'
+version = '1.0'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.hypixel.net/repository/Hypixel/' }
+}
+
+dependencies {
+    implementation 'net.dv8tion:JDA:5.3.0'
+    implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+    implementation 'org.jetbrains:annotations:24.0.0'
+    implementation 'ch.qos.logback:logback-classic:1.4.11'
+    implementation 'com.google.cloud:google-cloud-translate:2.33.0'
+    implementation 'com.google.code.gson:gson:2.14.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+jar {
+    manifest {
+        attributes(
+                'Main-Class': 'com.nic49.bot.Main'
+        )
+    }
+}
+
+shadowJar {
+    archiveBaseName.set('lootgremsbot')
+    archiveClassifier.set('all')
+    archiveVersion.set('1.0')
+
+    manifest {
+        attributes 'Main-Class': 'org.lootgrems.bot.Main'
+    }
+}
