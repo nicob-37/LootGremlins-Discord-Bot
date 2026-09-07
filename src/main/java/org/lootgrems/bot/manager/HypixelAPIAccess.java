@@ -166,6 +166,10 @@ public class HypixelAPIAccess {
         }
 
         JsonNode nwResponse = calculateNetworth(memberNode, museumMember, bankBalance);
+        if (nwResponse == null) {
+            throw new RuntimeException("Networth calculator returned null response");
+        }
+
         double totalNetworth = nwResponse.path("networth").asDouble(0.0);
         double purse = nwResponse.path("purse").asDouble(0.0);
         double bank = nwResponse.path("bank").asDouble(0.0);

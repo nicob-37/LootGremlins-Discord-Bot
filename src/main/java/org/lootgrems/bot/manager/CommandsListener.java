@@ -154,6 +154,7 @@ public class CommandsListener extends ListenerAdapter {
 
                 case "stats" -> {
                     OptionMapping ignOption = event.getOption("username");
+
                     if (ignOption == null) {
                         event.reply("Please provide a username.").setEphemeral(true).queue();
                         return;
@@ -167,19 +168,28 @@ public class CommandsListener extends ListenerAdapter {
                             String uuid = apiAccess.getUuidFromUsername(ign);
                             HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
 
+                            String cuteName = (stats.cuteName() != null && !stats.cuteName().isEmpty())
+                                    ? stats.cuteName()
+                                    : "Unknown";
+
+                            String formattedNw = formatter != null
+                                    ? formatter.format(stats.totalNetworth())
+                                    : String.format("%.2f", stats.totalNetworth());
+
                             EmbedBuilder eb = new EmbedBuilder();
-                            eb.setTitle(ign + " [" + stats.cuteName() + "]");
+                            eb.setTitle(ign + " [" + cuteName + "]");
                             eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
                             eb.setColor(new Color(0x00FFFF));
 
-                            eb.addField("SkyBlock Level", String.format("%,d", stats.sbLevel()), true);
-                            eb.addField("Networth", formatter.format(stats.totalNetworth()), true);
+                            eb.addField("SkyBlock Level", String.valueOf(stats.sbLevel()), true);
+                            eb.addField("Networth", formattedNw, true);
 
                             event.getHook().sendMessageEmbeds(eb.build()).queue();
                         } catch (IllegalArgumentException e) {
-                            event.getHook().sendMessage("⚠️ " + e.getMessage()).queue();
+                            event.getHook().sendMessage("Could not find player `" + ign + "`.").queue();
                         } catch (Exception e) {
-                            event.getHook().sendMessage("❌ Error fetching stats: " + e.getMessage()).queue();
+                            e.printStackTrace();
+                            event.getHook().sendMessage("Error fetching stats: " + e.getMessage()).queue();
                         }
                     });
                 }
