@@ -23,8 +23,28 @@ import org.lootgrems.bot.ID;
 public class CommandsListener extends ListenerAdapter {
     public List<SlashCommandEx> commands = new ArrayList<>();
 
-    private final HypixelAPIAccess apiAccess = new HypixelAPIAccess(System.getenv("HYPIXEL_API_KEY"));
+    private final HypixelAPIAccess apiAccess = new HypixelAPIAccess(getResolvedApiKey());
     private final NumberFormat formatter = NumberFormat.getCompactNumberInstance(Locale.US, NumberFormat.Style.SHORT);
+
+    private static String getResolvedApiKey() {
+        String key = System.getenv("HYPIXEL_API_KEY");
+        if (key != null && !key.isBlank()) return key;
+
+        try {
+            // Attempt reading directly from .env file in the current working directory
+            java.io.File envFile = new java.io.File(".env");
+            if (envFile.exists()) {
+                for (String line : java.nio.file.Files.readAllLines(envFile.toPath())) {
+                    if (line.trim().startsWith("HYPIXEL_API_KEY=")) {
+                        return line.substring("HYPIXEL_API_KEY=".length()).trim();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+
+        System.err.println("WARNING: HYPIXEL_API_KEY not found in env or .env file!");
+        return "";
+    }
 
     boolean commandsEnabled = true;
     boolean pushingGlobal = false;

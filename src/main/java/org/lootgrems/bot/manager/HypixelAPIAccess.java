@@ -164,6 +164,10 @@ public class HypixelAPIAccess {
 
         double bankBalance = activeProfile.path("banking").path("balance").asDouble(0.0);
         JsonNode museumRoot = getMuseumData(profileId);
+        JsonNode museumMember = null;
+        if (museumRoot != null && museumRoot.path("success").asBoolean(false)) {
+            museumMember = museumRoot.path("members").path(trimmedUuid);
+        }
 
         JsonNode nwResponse = calculateNetworth(memberNode, museumRoot, bankBalance);
 
