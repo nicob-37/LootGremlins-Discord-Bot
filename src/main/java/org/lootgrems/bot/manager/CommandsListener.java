@@ -94,20 +94,19 @@ public class CommandsListener extends ListenerAdapter {
 
     public void initCommands(@NotNull net.dv8tion.jda.api.events.session.ReadyEvent event) {
         commands.clear();
-
         var guild = event.getJDA().getGuildById(ID.LOOT_GREMLINS);
 
         // ------------------------Commands----------------------------
         commands.add(new SlashCommandEx("ping", "Pong"));
 
         // ADMIN COMMANDS
-        commands.add(new SlashCommandEx("update", "Restarts the bot", ID.NICO)
+        commands.add(new SlashCommandEx("update", "[Restricted] Restarts the bot", ID.NICO)
                 .addOption(OptionType.STRING, "api-key", "API Key for Hypixel", false));
 
-        commands.add(new SlashCommandEx("stop", "Stops the bot", ID.NICO));
+        commands.add(new SlashCommandEx("stop", "[Restricted] Stops the bot", ID.NICO));
 
         OptionData settingOptions = new OptionData(OptionType.STRING, "Ping For Role", "Ping Nico for role updates");
-        commands.add(new SlashCommandEx("setting", "Update a bot setting", ID.NICO)
+        commands.add(new SlashCommandEx("setting", "[Restricted] Update a bot setting", ID.NICO)
                 .addOptions(settingOptions));
 
         // GUILD COMMANDS
