@@ -169,25 +169,32 @@ public class CommandsListener extends ListenerAdapter {
 
                             String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
                                     ? stats.cuteName()
-                                    : "Unknown";
+                                    : "Default";
 
-                            // Format networth safely (compact format like 1.2M or fallback)
+                            double nw = Double.isNaN(stats.totalNetworth()) || Double.isInfinite(stats.totalNetworth())
+                                    ? 0.0
+                                    : stats.totalNetworth();
+
                             String formattedNw;
                             try {
-                                formattedNw = formatter.format(stats.totalNetworth());
-                            } catch (Exception ignored) {
-                                formattedNw = String.format("%,.0f", stats.totalNetworth());
+                                formattedNw = formatter.format(nw);
+                            } catch (Exception ex) {
+                                formattedNw = String.format("%,.0f", nw);
                             }
-                            if (formattedNw == null) {
+                            if (formattedNw == null || formattedNw.isBlank()) {
                                 formattedNw = "0";
                             }
 
+                            String levelStr = String.valueOf(Math.max(0, stats.sbLevel()));
+
                             EmbedBuilder eb = new EmbedBuilder();
                             eb.setTitle(ign + " [" + cuteName + "]");
-                            eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
+                            if (uuid != null && !uuid.isBlank()) {
+                                eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
+                            }
                             eb.setColor(new Color(0x00FFFF));
 
-                            eb.addField("SkyBlock Level", String.valueOf(stats.sbLevel()), true);
+                            eb.addField("SkyBlock Level", levelStr, true);
                             eb.addField("Networth", formattedNw, true);
 
                             event.getHook().sendMessageEmbeds(eb.build()).queue();

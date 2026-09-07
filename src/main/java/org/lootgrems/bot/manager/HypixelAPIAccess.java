@@ -103,13 +103,13 @@ public class HypixelAPIAccess {
         return mapper.readTree(body);
     }
 
-    public JsonNode calculateNetworth(JsonNode profileMember, JsonNode museumMember, double bankBalance)
+    public JsonNode calculateNetworth(JsonNode profileMember, JsonNode museumData, double bankBalance)
             throws IOException, InterruptedException {
 
         ObjectNode payload = mapper.createObjectNode();
         payload.set("profileData", profileMember);
-        if (museumMember != null && !museumMember.isMissingNode()) {
-            payload.set("museumData", museumMember);
+        if (museumData != null && !museumData.isMissingNode() && !museumData.isNull()) {
+            payload.set("museumData", museumData);
         }
         payload.put("bankBalance", bankBalance);
 
@@ -123,8 +123,8 @@ public class HypixelAPIAccess {
         HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
         String body = res.body();
 
-        if (res.statusCode() != 200) {
-            throw new RuntimeException("Local Networth Service error (" + res.statusCode() + "): " + body);
+        if (res.statusCode() != 200 || body == null) {
+            throw new RuntimeException("Local Networth error (" + res.statusCode() + "): " + body);
         }
 
         return mapper.readTree(body);
@@ -149,26 +149,23 @@ public class HypixelAPIAccess {
             activeProfile = profilesArray.get(0);
         }
 
-        String profileId = activeProfile.path("profile_id").asText();
-        String cuteName = activeProfile.path("cute_name").asText();
+        String profileId = activeProfile.path("profile_id").asText("unknown");
+        String cuteName = activeProfile.path("cute_name").asText("Unknown");
 
         String trimmedUuid = uuid.replace("-", "");
         JsonNode memberNode = activeProfile.path("members").path(trimmedUuid);
+
+        if (memberNode.isMissingNode() || memberNode.isNull()) {
+            throw new IllegalStateException("Could not find member data for UUID: " + uuid);
+        }
 
         double exp = memberNode.path("leveling").path("experience").asDouble(0.0);
         int sbLevel = (int) (exp / 100.0);
 
         double bankBalance = activeProfile.path("banking").path("balance").asDouble(0.0);
         JsonNode museumRoot = getMuseumData(profileId);
-        JsonNode museumMember = null;
-        if (museumRoot != null && museumRoot.path("success").asBoolean(false)) {
-            museumMember = museumRoot.path("members").path(trimmedUuid);
-        }
 
-        JsonNode nwResponse = calculateNetworth(memberNode, museumMember, bankBalance);
-        if (nwResponse == null) {
-            throw new RuntimeException("Networth calculator returned null response");
-        }
+        JsonNode nwResponse = calculateNetworth(memberNode, museumRoot, bankBalance);
 
         double totalNetworth = nwResponse.path("networth").asDouble(0.0);
         double purse = nwResponse.path("purse").asDouble(0.0);
