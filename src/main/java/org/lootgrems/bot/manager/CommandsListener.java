@@ -103,7 +103,12 @@ public class CommandsListener extends ListenerAdapter {
         // ADMIN COMMANDS
         commands.add(new SlashCommandEx("update", "Restarts the bot", ID.NICO)
                 .addOption(OptionType.STRING, "api-key", "API Key for Hypixel", false));
+
         commands.add(new SlashCommandEx("stop", "Stops the bot", ID.NICO));
+
+        OptionData settingOptions = new OptionData(OptionType.STRING, "Ping For Role", "Ping Nico for role updates");
+        commands.add(new SlashCommandEx("setting", "Update a bot setting", ID.NICO)
+                .addOptions(settingOptions));
 
         // GUILD COMMANDS
         commands.add(new SlashCommandEx("stats", "Networth and Level of player")
@@ -342,9 +347,19 @@ public class CommandsListener extends ListenerAdapter {
                             eb.addField("Networth", formattedNw, true);
 
                             eb.setColor(getLevelColor(sblevel));
+                            // Embed Finish
+
+                            // Alert Embed
+                            EmbedBuilder alertEmbed = new EmbedBuilder();
+
+                            alertEmbed.setTitle(member.getEffectiveName() + " got their role updated!");
+                            alertEmbed.addField("Role", roleTitle, false);
+                            eb.setColor(getLevelColor(sblevel));
+                            // Alert Embed Finish
 
                             event.getHook().sendMessageEmbeds(eb.build()).queue(hook ->
-                                    guild.getTextChannelById(ID.ROLE_ALERT).sendMessage(member.getEffectiveName() + " has the " + roleTitle + " role. Please update in the guild.").queue());
+                                    guild.getTextChannelById(ID.ROLE_ALERT).sendMessageEmbeds(alertEmbed.build()).queue()
+                            );
 
                         } catch (IllegalArgumentException e) {
                             e.printStackTrace();
