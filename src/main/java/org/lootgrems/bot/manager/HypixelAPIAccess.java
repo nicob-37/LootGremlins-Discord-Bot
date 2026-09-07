@@ -2,6 +2,7 @@ package org.lootgrems.bot.manager;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.net.URI;
@@ -9,15 +10,18 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Iterator;
-import java.util.Map;
 
 public class HypixelAPIAccess {
 
+    private final String apiKey;
     private final HttpClient httpClient;
     private final ObjectMapper mapper;
 
-    public HypixelAPIAccess() {
+    private static final String HYPIXEL_BASE_URL = "https://api.hypixel.net/v2";
+    private static final String LOCAL_NW_URL = "http://127.0.0.1:3000/calculate";
+
+    public HypixelAPIAccess(String apiKey) {
+        this.apiKey = apiKey;
         this.mapper = new ObjectMapper();
         this.httpClient = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
@@ -34,12 +38,10 @@ public class HypixelAPIAccess {
             double bank
     ) {}
 
-    public SkyblockStats getSkyCryptStats(String ignOrUuid) throws IOException, InterruptedException {
+    public String getUuidFromUsername(String username) throws IOException, InterruptedException {
         HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create("https://sky.shiiyu.moe/api/v2/profile/" + ignOrUuid))
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .header("Accept", "application/json")
-                .timeout(Duration.ofSeconds(15))
+                .uri(URI.create("https://api.mojang.com/users/profiles/minecraft/" + username))
+                .header("User-Agent", "LootGremlinsBot/1.0")
                 .GET()
                 .build();
 
@@ -47,40 +49,126 @@ public class HypixelAPIAccess {
         String body = res.body();
 
         if (res.statusCode() != 200 || body == null || body.trim().startsWith("<")) {
-            throw new RuntimeException("SkyCrypt API returned status " + res.statusCode() + ". Profile may not exist or is blocked.");
+            throw new IllegalArgumentException("Player username not found: " + username);
+        }
+
+        JsonNode json = mapper.readTree(body);
+        return json.path("id").asText();
+    }
+
+    public JsonNode getSkyblockProfiles(String uuid) throws IOException, InterruptedException {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(HYPIXEL_BASE_URL + "/skyblock/profiles?uuid=" + uuid))
+                .header("API-Key", this.apiKey)
+                .header("User-Agent", "LootGremlinsBot/1.0")
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+
+        HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        String body = res.body();
+
+        if (body == null || body.trim().startsWith("<")) {
+            throw new RuntimeException("Hypixel API returned HTML status " + res.statusCode() + ". Verify your API key.");
+        }
+
+        if (res.statusCode() != 200) {
+            throw new RuntimeException("Hypixel API error (Status " + res.statusCode() + "): " + body);
         }
 
         JsonNode root = mapper.readTree(body);
-        JsonNode profilesNode = root.path("profiles");
+        if (!root.path("success").asBoolean(false)) {
+            throw new RuntimeException("Hypixel API returned success: false");
+        }
 
-        if (profilesNode.isMissingNode() || profilesNode.isEmpty()) {
-            throw new IllegalArgumentException("No SkyBlock profiles found for `" + ignOrUuid + "`.");
+        return root;
+    }
+
+    public JsonNode getMuseumData(String profileId) throws IOException, InterruptedException {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(HYPIXEL_BASE_URL + "/skyblock/museum?profile=" + profileId))
+                .header("API-Key", this.apiKey)
+                .header("User-Agent", "LootGremlinsBot/1.0")
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+
+        HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        String body = res.body();
+
+        if (res.statusCode() != 200 || body == null || body.trim().startsWith("<")) {
+            return null;
+        }
+
+        return mapper.readTree(body);
+    }
+
+    public JsonNode calculateNetworth(JsonNode profileMember, JsonNode museumMember, double bankBalance)
+            throws IOException, InterruptedException {
+
+        ObjectNode payload = mapper.createObjectNode();
+        payload.set("profileData", profileMember);
+        if (museumMember != null && !museumMember.isMissingNode()) {
+            payload.set("museumData", museumMember);
+        }
+        payload.put("bankBalance", bankBalance);
+
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(LOCAL_NW_URL))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(15))
+                .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(payload)))
+                .build();
+
+        HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        String body = res.body();
+
+        if (res.statusCode() != 200) {
+            throw new RuntimeException("Local Networth Service error (" + res.statusCode() + "): " + body);
+        }
+
+        return mapper.readTree(body);
+    }
+
+    public SkyblockStats getActiveProfileStats(String uuid) throws Exception {
+        JsonNode profilesResponse = getSkyblockProfiles(uuid);
+        JsonNode profilesArray = profilesResponse.path("profiles");
+
+        if (!profilesArray.isArray() || profilesArray.isEmpty()) {
+            throw new IllegalStateException("No SkyBlock profiles found for UUID: " + uuid);
         }
 
         JsonNode activeProfile = null;
-        Iterator<Map.Entry<String, JsonNode>> fields = profilesNode.fields();
-        while (fields.hasNext()) {
-            JsonNode candidate = fields.next().getValue();
-            if (candidate.path("current").asBoolean(false)) {
-                activeProfile = candidate;
+        for (JsonNode profile : profilesArray) {
+            if (profile.path("selected").asBoolean(false)) {
+                activeProfile = profile;
                 break;
             }
         }
         if (activeProfile == null) {
-            activeProfile = profilesNode.elements().next();
+            activeProfile = profilesArray.get(0);
         }
 
         String profileId = activeProfile.path("profile_id").asText();
         String cuteName = activeProfile.path("cute_name").asText();
 
-        int sbLevel = activeProfile.path("data").path("skyblock_level").path("level").asInt(
-                activeProfile.path("leveling").path("level").asInt(0)
-        );
+        String trimmedUuid = uuid.replace("-", "");
+        JsonNode memberNode = activeProfile.path("members").path(trimmedUuid);
 
-        JsonNode nwNode = activeProfile.path("data").path("networth");
-        double totalNetworth = nwNode.path("networth").asDouble(0.0);
-        double purse = nwNode.path("purse").asDouble(0.0);
-        double bank = nwNode.path("bank").asDouble(0.0);
+        double exp = memberNode.path("leveling").path("experience").asDouble(0.0);
+        int sbLevel = (int) (exp / 100.0);
+
+        double bankBalance = activeProfile.path("banking").path("balance").asDouble(0.0);
+        JsonNode museumRoot = getMuseumData(profileId);
+        JsonNode museumMember = null;
+        if (museumRoot != null && museumRoot.path("success").asBoolean(false)) {
+            museumMember = museumRoot.path("members").path(trimmedUuid);
+        }
+
+        JsonNode nwResponse = calculateNetworth(memberNode, museumMember, bankBalance);
+        double totalNetworth = nwResponse.path("networth").asDouble(0.0);
+        double purse = nwResponse.path("purse").asDouble(0.0);
+        double bank = nwResponse.path("bank").asDouble(0.0);
 
         return new SkyblockStats(profileId, cuteName, sbLevel, totalNetworth, purse, bank);
     }

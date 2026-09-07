@@ -20,12 +20,10 @@ import java.util.Locale;
 
 import org.lootgrems.bot.ID;
 
-import javax.swing.text.NumberFormatter;
-
 public class CommandsListener extends ListenerAdapter {
     public List<SlashCommandEx> commands = new ArrayList<>();
 
-    private final HypixelAPIAccess apiAccess = new HypixelAPIAccess();
+    private final HypixelAPIAccess apiAccess = new HypixelAPIAccess(System.getenv("HYPIXEL_API_KEY"));
     private final NumberFormat formatter = NumberFormat.getCompactNumberInstance(Locale.US, NumberFormat.Style.SHORT);
 
     boolean commandsEnabled = true;
@@ -162,10 +160,12 @@ public class CommandsListener extends ListenerAdapter {
 
                     Thread.ofVirtual().start(() -> {
                         try {
-                            HypixelAPIAccess.SkyblockStats stats = apiAccess.getSkyCryptStats(ign);
+                            String uuid = apiAccess.getUuidFromUsername(ign);
+                            HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
 
                             EmbedBuilder eb = new EmbedBuilder();
                             eb.setTitle(ign + " [" + stats.cuteName() + "]");
+                            eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
                             eb.setColor(new Color(0x00FFFF));
 
                             eb.addField("SkyBlock Level", String.format("%,d", stats.sbLevel()), true);
@@ -173,9 +173,9 @@ public class CommandsListener extends ListenerAdapter {
 
                             event.getHook().sendMessageEmbeds(eb.build()).queue();
                         } catch (IllegalArgumentException e) {
-                            event.getHook().sendMessage(e.getMessage()).queue();
+                            event.getHook().sendMessage("⚠️ " + e.getMessage()).queue();
                         } catch (Exception e) {
-                            event.getHook().sendMessage("Error fetching stats: " + e.getMessage()).queue();
+                            event.getHook().sendMessage("❌ Error fetching stats: " + e.getMessage()).queue();
                         }
                     });
                 }
