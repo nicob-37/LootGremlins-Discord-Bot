@@ -324,7 +324,14 @@ public class CommandsListener extends ListenerAdapter {
 
                             // Build Embed
                             EmbedBuilder eb = new EmbedBuilder();
-                            eb.setTitle("Congrats " + ign + " [" + cuteName + "] !");
+                            String earnedRole = calculateGremlinRole(sblevel, nw);
+
+                            eb.setTitle("Congrats " + ign + " [" + cuteName + "] on getting " +
+                                    (earnedRole.equals(ID.RICH_GREMLIN) ? "Rich Gremlin!" :
+                                            earnedRole.equals(ID.COOL_GREMLIN) ? "Cool Gremlin!" :
+                                                    earnedRole.equals(ID.GREMLIN) ? "Gremlin !" :
+                                                            "Lil' Gremlin!"));
+
                             if (uuid != null && !uuid.isBlank()) {
                                 eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
                             }
