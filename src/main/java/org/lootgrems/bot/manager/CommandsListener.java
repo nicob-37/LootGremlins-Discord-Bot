@@ -154,7 +154,6 @@ public class CommandsListener extends ListenerAdapter {
 
                 case "stats" -> {
                     OptionMapping ignOption = event.getOption("username");
-
                     if (ignOption == null) {
                         event.reply("Please provide a username.").setEphemeral(true).queue();
                         return;
@@ -168,13 +167,20 @@ public class CommandsListener extends ListenerAdapter {
                             String uuid = apiAccess.getUuidFromUsername(ign);
                             HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
 
-                            String cuteName = (stats.cuteName() != null && !stats.cuteName().isEmpty())
+                            String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
                                     ? stats.cuteName()
                                     : "Unknown";
 
-                            String formattedNw = formatter != null
-                                    ? formatter.format(stats.totalNetworth())
-                                    : String.format("%.2f", stats.totalNetworth());
+                            // Format networth safely (compact format like 1.2M or fallback)
+                            String formattedNw;
+                            try {
+                                formattedNw = formatter.format(stats.totalNetworth());
+                            } catch (Exception ignored) {
+                                formattedNw = String.format("%,.0f", stats.totalNetworth());
+                            }
+                            if (formattedNw == null) {
+                                formattedNw = "0";
+                            }
 
                             EmbedBuilder eb = new EmbedBuilder();
                             eb.setTitle(ign + " [" + cuteName + "]");
@@ -185,11 +191,13 @@ public class CommandsListener extends ListenerAdapter {
                             eb.addField("Networth", formattedNw, true);
 
                             event.getHook().sendMessageEmbeds(eb.build()).queue();
+
                         } catch (IllegalArgumentException e) {
-                            event.getHook().sendMessage("Could not find player `" + ign + "`.").queue();
+                            e.printStackTrace();
+                            event.getHook().sendMessage("Input error: " + (e.getMessage() != null ? e.getMessage() : "Unknown")).queue();
                         } catch (Exception e) {
                             e.printStackTrace();
-                            event.getHook().sendMessage("Error fetching stats: " + e.getMessage()).queue();
+                            event.getHook().sendMessage("Error fetching stats: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())).queue();
                         }
                     });
                 }
