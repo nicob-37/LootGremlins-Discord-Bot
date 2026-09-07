@@ -100,6 +100,10 @@ public class CommandsListener extends ListenerAdapter {
         if (pushingGlobal) {
             event.getJDA().updateCommands().addCommands(jdaData).queue();
         }
+
+        event.getJDA().updateCommands().queue(
+                s -> System.out.println("Flushed all global commands successfully.")
+        );
     }
 
     @Override
