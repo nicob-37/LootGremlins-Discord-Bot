@@ -217,17 +217,18 @@ public class CommandsListener extends ListenerAdapter {
                                 formattedNw = "0";
                             }
 
-                            String levelStr = String.valueOf(Math.max(0, stats.sbLevel()));
+                            int sblevel = Math.max(0, stats.sbLevel());
 
                             EmbedBuilder eb = new EmbedBuilder();
                             eb.setTitle(ign + " [" + cuteName + "]");
                             if (uuid != null && !uuid.isBlank()) {
                                 eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
                             }
-                            eb.setColor(new Color(0x00FFFF));
 
-                            eb.addField("SkyBlock Level", levelStr, true);
+                            eb.addField("SkyBlock Level", String.valueOf(sblevel), true);
                             eb.addField("Networth", formattedNw, true);
+
+                            eb.setColor(getLevelColor(sblevel));
 
                             event.getHook().sendMessageEmbeds(eb.build()).queue();
 
@@ -272,6 +273,22 @@ public class CommandsListener extends ListenerAdapter {
         java.nio.file.Files.write(envFile.toPath(), lines,
                 java.nio.file.StandardOpenOption.CREATE,
                 java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
+    }
+
+    public static Color getLevelColor(int level) {
+        if (level >= 480) return new Color(0xAA0000); // Dark Red
+        if (level >= 440) return new Color(0xFF5555); // Red
+        if (level >= 400) return new Color(0xFFAA00); // Gold
+        if (level >= 360) return new Color(0xAA00AA); // Dark Purple
+        if (level >= 320) return new Color(0xFF55FF); // Light Purple / Pink
+        if (level >= 280) return new Color(0x5555FF); // Blue
+        if (level >= 240) return new Color(0x00AAAA); // Cyan
+        if (level >= 200) return new Color(0x55FFFF); // Aqua
+        if (level >= 160) return new Color(0x00AA00); // Dark Green
+        if (level >= 120) return new Color(0x55FF55); // Lime Green
+        if (level >= 80)  return new Color(0xFFFF55); // Yellow
+        if (level >= 40)  return new Color(0xFFFFFF); // White
+        return new Color(0xAAAAAA);                    // Gray
     }
 
 }
