@@ -1,6 +1,8 @@
 package org.lootgrems.bot.manager;
 
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.IntegrationType;
@@ -106,6 +108,9 @@ public class CommandsListener extends ListenerAdapter {
         // GUILD COMMANDS
         commands.add(new SlashCommandEx("stats", "Networth and Level of player")
                 .addOption(OptionType.STRING, "username", "Username of player", true));
+
+        commands.add(new SlashCommandEx("gremlin", "Use this to get your Gremlin Role in the Guild!")
+                .addOption(OptionType.STRING, "username", "Your Minecraft IGN", true));
 
 
         // ------------------------------------------------------------
@@ -242,6 +247,105 @@ public class CommandsListener extends ListenerAdapter {
                     });
                 }
 
+                case "gremlin" -> {
+                    OptionMapping ignOption = event.getOption("username");
+                    if (ignOption == null) {
+                        event.reply("Please provide a username.").setEphemeral(true).queue();
+                        return;
+                    }
+                    String ign = ignOption.getAsString();
+
+                    event.deferReply().queue();
+
+                    net.dv8tion.jda.api.entities.Member member = event.getMember();
+                    net.dv8tion.jda.api.entities.Guild guild = event.getGuild();
+
+                    if (guild != null && member != null) {
+                        if (guild.getSelfMember().hasPermission(net.dv8tion.jda.api.Permission.NICKNAME_MANAGE)
+                                && guild.getSelfMember().canInteract(member)) {
+
+                            member.modifyNickname(ign).queue(
+                                    success -> System.out.println("Updated nickname for " + member.getUser().getName() + " to " + ign),
+                                    error -> System.err.println("Could not update nickname: " + error.getMessage())
+                            );
+                        }
+                    }
+
+                    Thread.ofVirtual().start(() -> {
+                        try {
+                            String uuid = apiAccess.getUuidFromUsername(ign);
+                            HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
+
+                            String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
+                                    ? stats.cuteName()
+                                    : "Default";
+
+                            double nw = Double.isNaN(stats.totalNetworth()) || Double.isInfinite(stats.totalNetworth())
+                                    ? 0.0
+                                    : stats.totalNetworth();
+
+                            String formattedNw;
+                            try {
+                                formattedNw = formatter.format(nw);
+                            } catch (Exception ex) {
+                                formattedNw = String.format("%,.0f", nw);
+                            }
+                            if (formattedNw == null || formattedNw.isBlank()) {
+                                formattedNw = "0";
+                            }
+
+                            int sblevel = Math.max(0, stats.sbLevel());
+
+                            if (guild != null && member != null) {
+                                String earnedRoleId = calculateGremlinRole(sblevel, nw);
+
+                                if (guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)
+                                        && guild.getSelfMember().canInteract(member)) {
+
+                                    for (Role currentRole : member.getRoles()) {
+                                        if (ID.ALL_GREMLIN_ROLES.contains(currentRole.getId())
+                                                && (earnedRoleId == null || !currentRole.getId().equals(earnedRoleId))) {
+                                            if (guild.getSelfMember().canInteract(currentRole)) {
+                                                guild.removeRoleFromMember(member, currentRole).queue();
+                                            }
+                                        }
+                                    }
+
+                                    if (earnedRoleId != null && !earnedRoleId.isBlank()) {
+                                        Role targetRole = guild.getRoleById(earnedRoleId);
+                                        if (targetRole != null && !member.getRoles().contains(targetRole)) {
+                                            if (guild.getSelfMember().canInteract(targetRole)) {
+                                                guild.addRoleToMember(member, targetRole).queue();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Build Embed
+                            EmbedBuilder eb = new EmbedBuilder();
+                            eb.setTitle("Congrats " + ign + " [" + cuteName + "] !");
+                            if (uuid != null && !uuid.isBlank()) {
+                                eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
+                            }
+
+                            eb.addField("SkyBlock Level", String.valueOf(sblevel), true);
+                            eb.addField("Networth", formattedNw, true);
+
+                            eb.setColor(getLevelColor(sblevel));
+
+                            event.getHook().sendMessageEmbeds(eb.build()).queue();
+
+                        } catch (IllegalArgumentException e) {
+                            e.printStackTrace();
+                            event.getHook().sendMessage("Input error: " + (e.getMessage() != null ? e.getMessage() : "Unknown")).queue();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            event.getHook().sendMessage("Error fetching stats: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())).queue();
+                        }
+                    });
+                }
+
             }
 
         }
@@ -289,6 +393,13 @@ public class CommandsListener extends ListenerAdapter {
         if (level >= 80)  return new Color(0xFFFF55); // Yellow
         if (level >= 40)  return new Color(0xFFFFFF); // White
         return new Color(0xAAAAAA);                    // Gray
+    }
+
+    public static String calculateGremlinRole(int level, double networth) {
+        if (level >= 500 && networth >= 25_000_000_000.0) return ID.RICH_GREMLIN;
+        if (level >= 360 && networth >= 8_000_000_000.0) return ID.COOL_GREMLIN;
+        if (level >= 200) return ID.GREMLIN;
+        return ID.LIL_GREMLIN;
     }
 
 }
