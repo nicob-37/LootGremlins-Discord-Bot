@@ -133,7 +133,7 @@ public class CommandsListener extends ListenerAdapter {
                 case "update" -> {
                     event.reply("Restarting and checking for update...").queue(success -> {
                         try {
-                            ProcessBuilder pb = new ProcessBuilder("setsid", "sh", "/home/ubuntu/nic49/update_bot.sh");
+                            ProcessBuilder pb = new ProcessBuilder("setsid", "sh", "/home/ubuntu/LootGremlinsBot/update_bot.sh");
                             pb.start();
                             Thread.sleep(1000);
                             event.getJDA().shutdown();
