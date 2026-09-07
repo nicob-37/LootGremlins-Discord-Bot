@@ -25,7 +25,7 @@ import javax.swing.text.NumberFormatter;
 public class CommandsListener extends ListenerAdapter {
     public List<SlashCommandEx> commands = new ArrayList<>();
 
-    private final HypixelAPIAccess apiAccess = new HypixelAPIAccess(System.getenv("HYPIXEL_API_KEY"));
+    private final HypixelAPIAccess apiAccess = new HypixelAPIAccess();
     private final NumberFormat formatter = NumberFormat.getCompactNumberInstance(Locale.US, NumberFormat.Style.SHORT);
 
     boolean commandsEnabled = true;
@@ -152,7 +152,6 @@ public class CommandsListener extends ListenerAdapter {
 
                 case "stats" -> {
                     OptionMapping ignOption = event.getOption("username");
-
                     if (ignOption == null) {
                         event.reply("Please provide a username.").setEphemeral(true).queue();
                         return;
@@ -163,25 +162,22 @@ public class CommandsListener extends ListenerAdapter {
 
                     Thread.ofVirtual().start(() -> {
                         try {
-                            String uuid = apiAccess.getUuidFromUsername(ign);
-                            HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
+                            HypixelAPIAccess.SkyblockStats stats = apiAccess.getSkyCryptStats(ign);
 
                             EmbedBuilder eb = new EmbedBuilder();
-                            eb.setTitle(ign + " [" + stats.cuteName() + "] ");
-                            eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
+                            eb.setTitle(ign + " [" + stats.cuteName() + "]");
                             eb.setColor(new Color(0x00FFFF));
 
-                            eb.addField("Skyblock Level", String.format("%,d", stats.sbLevel()), true);
+                            eb.addField("SkyBlock Level", String.format("%,d", stats.sbLevel()), true);
                             eb.addField("Networth", formatter.format(stats.totalNetworth()), true);
 
                             event.getHook().sendMessageEmbeds(eb.build()).queue();
                         } catch (IllegalArgumentException e) {
-                            event.getHook().sendMessage("Could not find player `" + ign + "`.").queue();
+                            event.getHook().sendMessage(e.getMessage()).queue();
                         } catch (Exception e) {
                             event.getHook().sendMessage("Error fetching stats: " + e.getMessage()).queue();
                         }
                     });
-
                 }
 
             }
