@@ -326,11 +326,13 @@ public class CommandsListener extends ListenerAdapter {
                             EmbedBuilder eb = new EmbedBuilder();
                             String earnedRole = calculateGremlinRole(sblevel, nw);
 
-                            eb.setTitle("Congrats " + ign + " [" + cuteName + "] on getting " +
-                                    (earnedRole.equals(ID.RICH_GREMLIN) ? "Rich Gremlin!" :
-                                            earnedRole.equals(ID.COOL_GREMLIN) ? "Cool Gremlin!" :
-                                                    earnedRole.equals(ID.GREMLIN) ? "Gremlin !" :
-                                                            "Lil' Gremlin!"));
+                            String roleTitle =
+                                    (earnedRole.equals(ID.RICH_GREMLIN) ? "Rich Gremlin" :
+                                            earnedRole.equals(ID.COOL_GREMLIN) ? "Cool Gremlin" :
+                                                    earnedRole.equals(ID.GREMLIN) ? "Gremlin" :
+                                                            "Lil' Gremlin");
+
+                            eb.setTitle("Congrats " + ign + " [" + cuteName + roleTitle + "!");
 
                             if (uuid != null && !uuid.isBlank()) {
                                 eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
@@ -341,7 +343,8 @@ public class CommandsListener extends ListenerAdapter {
 
                             eb.setColor(getLevelColor(sblevel));
 
-                            event.getHook().sendMessageEmbeds(eb.build()).queue();
+                            event.getHook().sendMessageEmbeds(eb.build()).queue(hook ->
+                                    guild.getTextChannelById(ID.ROLE_ALERT).sendMessage(member.getEffectiveName() + " has the " + roleTitle + " role. Please update in the guild.").queue());
 
                         } catch (IllegalArgumentException e) {
                             e.printStackTrace();
