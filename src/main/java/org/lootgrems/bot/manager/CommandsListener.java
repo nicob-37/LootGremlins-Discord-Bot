@@ -31,7 +31,6 @@ public class CommandsListener extends ListenerAdapter {
         if (key != null && !key.isBlank()) return key;
 
         try {
-            // Attempt reading directly from .env file in the current working directory
             java.io.File envFile = new java.io.File(".env");
             if (envFile.exists()) {
                 for (String line : java.nio.file.Files.readAllLines(envFile.toPath())) {
@@ -100,7 +99,8 @@ public class CommandsListener extends ListenerAdapter {
         commands.add(new SlashCommandEx("ping", "Pong"));
 
         // ADMIN COMMANDS
-        commands.add(new SlashCommandEx("update", "Restarts the bot", ID.NICO));
+        commands.add(new SlashCommandEx("update", "Restarts the bot", ID.NICO)
+                .addOption(OptionType.STRING, "api-key", "API Key for Hypixel", false));
         commands.add(new SlashCommandEx("stop", "Stops the bot", ID.NICO));
 
         // GUILD COMMANDS
@@ -153,7 +153,19 @@ public class CommandsListener extends ListenerAdapter {
                 }
 
                 case "update" -> {
-                    event.reply("Restarting and checking for update...").queue(success -> {
+                    OptionMapping keyOption = event.getOption("api_key");
+
+                    if (keyOption != null) {
+                        String newKey = keyOption.getAsString().trim();
+                        try {
+                            updateEnvFile("HYPIXEL_API_KEY", newKey);
+                        } catch (Exception e) {
+                            event.reply("Failed to update .env: " + e.getMessage()).setEphemeral(true).queue();
+                            return;
+                        }
+                    }
+
+                    event.reply("Updating environment and restarting...").setEphemeral(true).queue(success -> {
                         try {
                             ProcessBuilder pb = new ProcessBuilder("setsid", "sh", "/home/ubuntu/LootGremlinsBot/update_bot.sh");
                             pb.start();
@@ -161,7 +173,7 @@ public class CommandsListener extends ListenerAdapter {
                             event.getJDA().shutdown();
                             System.exit(0);
                         } catch (Exception e) {
-                            event.getChannel().sendMessage("Critical error: " + e.getMessage()).queue();
+                            event.getChannel().sendMessage("Critical error during restart: " + e.getMessage()).queue();
                         }
                     });
                 }
@@ -235,6 +247,31 @@ public class CommandsListener extends ListenerAdapter {
         else {
             event.reply("Commands are currently disabled.").setEphemeral(true).queue();
         }
+    }
+
+    private static synchronized void updateEnvFile(String key, String value) throws java.io.IOException {
+        java.io.File envFile = new java.io.File(".env");
+        java.util.List<String> lines = envFile.exists()
+                ? new java.util.ArrayList<>(java.nio.file.Files.readAllLines(envFile.toPath()))
+                : new java.util.ArrayList<>();
+
+        boolean updated = false;
+        for (int i = 0; i < lines.size(); i++) {
+            String line = lines.get(i).trim();
+            if (line.startsWith(key + "=")) {
+                lines.set(i, key + "=" + value);
+                updated = true;
+                break;
+            }
+        }
+
+        if (!updated) {
+            lines.add(key + "=" + value);
+        }
+
+        java.nio.file.Files.write(envFile.toPath(), lines,
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.TRUNCATE_EXISTING);
     }
 
 }

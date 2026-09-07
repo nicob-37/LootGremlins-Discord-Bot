@@ -57,6 +57,10 @@ public class HypixelAPIAccess {
     }
 
     public JsonNode getSkyblockProfiles(String uuid) throws IOException, InterruptedException {
+        if (this.apiKey == null || this.apiKey.isBlank()) {
+            throw new IllegalStateException("HYPIXEL_API_KEY is missing or empty. Please set it in your .env file.");
+        }
+
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(HYPIXEL_BASE_URL + "/skyblock/profiles?uuid=" + uuid))
                 .header("API-Key", this.apiKey)
