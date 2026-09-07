@@ -8,12 +8,14 @@ import net.dv8tion.jda.api.utils.ChunkingFilter;
 import net.dv8tion.jda.api.utils.MemberCachePolicy;
 import net.dv8tion.jda.api.utils.cache.CacheFlag;
 import org.lootgrems.bot.manager.CommandsListener;
+import org.lootgrems.bot.manager.StatusListener;
 
 import java.util.EnumSet;
 
 public class Main {
 
     static CommandsListener commandsListener = new CommandsListener();
+    static StatusListener statusListener = new StatusListener();
 
     public static void main(String args[]) {
         Dotenv dotenv = Dotenv.load();
@@ -33,7 +35,8 @@ public class Main {
 
 
         builder.addEventListeners(
-               commandsListener
+               commandsListener,
+                statusListener
         );
 
         JDA bot = builder.build();
