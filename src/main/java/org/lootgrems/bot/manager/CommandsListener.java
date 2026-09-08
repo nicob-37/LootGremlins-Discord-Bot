@@ -332,10 +332,7 @@ public class CommandsListener extends ListenerAdapter {
                         EmbedBuilder eb = new EmbedBuilder();
                         String earnedRole = calculateGremlinRole(sblevel, nw);
 
-                        String roleTitle = (ID.RICH_GREMLIN.equals(earnedRole)) ? "Rich Gremlin" :
-                                (ID.COOL_GREMLIN.equals(earnedRole)) ? "Cool Gremlin" :
-                                        (ID.GREMLIN.equals(earnedRole)) ? "Gremlin" :
-                                                "Lil' Gremlin";
+                        String roleTitle = getGremlinRoleTitle(earnedRole);
 
                         eb.setTitle("Congrats " + ign + " [" + cuteName + "] - " + roleTitle + "!");
 
@@ -422,5 +419,13 @@ public class CommandsListener extends ListenerAdapter {
         if (level >= 360 && networth >= 8_000_000_000.0) return ID.COOL_GREMLIN;
         if (level >= 200) return ID.GREMLIN;
         return ID.LIL_GREMLIN;
+    }
+
+    public static String getGremlinRoleTitle(String id) {
+        if (id.equals(ID.RICH_GREMLIN)) return "Rich Gremlin";
+        else if (id.equals(ID.COOL_GREMLIN)) return "Cool Gremlin";
+        else if (id.equals(ID.GREMLIN)) return "Gremlin";
+        else if (id.equals(ID.LIL_GREMLIN)) return "Lil' Gremlin";
+        else return "ERROR - GREMLIN ID";
     }
 }
