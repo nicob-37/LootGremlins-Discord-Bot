@@ -2,7 +2,10 @@ package org.lootgrems.bot.manager;
 
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Role;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.IntegrationType;
@@ -13,14 +16,13 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import org.jetbrains.annotations.NotNull;
+import org.lootgrems.bot.ID;
 
 import java.awt.*;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
-import org.lootgrems.bot.ID;
 
 public class CommandsListener extends ListenerAdapter {
     public List<SlashCommandEx> commands = new ArrayList<>();
@@ -101,11 +103,11 @@ public class CommandsListener extends ListenerAdapter {
 
         // ADMIN COMMANDS
         commands.add(new SlashCommandEx("update", "[Restricted] Restarts the bot", ID.NICO)
-                .addOption(OptionType.STRING, "api-key", "API Key for Hypixel", false));
+                .addOption(OptionType.STRING, "api_key", "API Key for Hypixel", false));
 
         commands.add(new SlashCommandEx("stop", "[Restricted] Stops the bot", ID.NICO));
 
-        OptionData settingOptions = new OptionData(OptionType.STRING, "Ping For Role", "Ping Nico for role updates");
+        OptionData settingOptions = new OptionData(OptionType.STRING, "mode", "Setting mode to toggle");
         commands.add(new SlashCommandEx("setting", "[Restricted] Update a bot setting", ID.NICO)
                 .addOptions(settingOptions));
 
@@ -116,14 +118,14 @@ public class CommandsListener extends ListenerAdapter {
         commands.add(new SlashCommandEx("gremlin", "Use this to get your Gremlin Role in the Guild!")
                 .addOption(OptionType.STRING, "username", "Your Minecraft IGN", true));
 
-
         // ------------------------------------------------------------
         List<SlashCommandData> jdaData = new ArrayList<>();
         for (SlashCommandEx ex : commands) { jdaData.add(ex.data); }
 
         if (guild != null) {
-            guild.updateCommands().addCommands(jdaData).queue();
-            System.out.println("Custom Commands Synced in Loot Gremlins");
+            guild.updateCommands().addCommands(jdaData).queue(
+                    success -> System.out.println("Custom Commands Synced in Loot Gremlins")
+            );
         }
 
         if (pushingGlobal) {
@@ -153,228 +155,224 @@ public class CommandsListener extends ListenerAdapter {
             }
         }
 
-        if (event.getUser().getId().equals(ID.NICO) || commandsEnabled) {
+        if (!event.getUser().getId().equals(ID.NICO) && !commandsEnabled) {
+            event.reply("Commands are currently disabled.").setEphemeral(true).queue();
+            return;
+        }
 
-            switch (event.getName().toLowerCase()) {
+        switch (event.getName().toLowerCase()) {
 
-                case "ping" -> {
-                    event.reply("Pong! (" + event.getJDA().getGatewayPing() + "ms)").queue();
-                }
+            case "ping" -> event.reply("Pong! (" + event.getJDA().getGatewayPing() + "ms)").queue();
 
-                case "update" -> {
-                    OptionMapping keyOption = event.getOption("api_key");
+            case "update" -> {
+                OptionMapping keyOption = event.getOption("api_key");
 
-                    if (keyOption != null) {
-                        String newKey = keyOption.getAsString().trim();
-                        try {
-                            updateEnvFile("HYPIXEL_API_KEY", newKey);
-                        } catch (Exception e) {
-                            event.reply("Failed to update .env: " + e.getMessage()).setEphemeral(true).queue();
-                            return;
-                        }
-                    }
-
-                    event.reply("Updating environment and restarting...").setEphemeral(true).queue(success -> {
-                        try {
-                            ProcessBuilder pb = new ProcessBuilder("setsid", "sh", "/home/ubuntu/LootGremlinsBot/update_bot.sh");
-                            pb.start();
-                            Thread.sleep(1000);
-                            event.getJDA().shutdown();
-                            System.exit(0);
-                        } catch (Exception e) {
-                            event.getChannel().sendMessage("Critical error during restart: " + e.getMessage()).queue();
-                        }
-                    });
-                }
-
-                case "stop" -> {
-                    event.reply("Shutting off bot").queue();
-                    event.getJDA().shutdown();
-                    System.exit(0);
-                }
-
-                case "stats" -> {
-                    OptionMapping ignOption = event.getOption("username");
-                    if (ignOption == null) {
-                        event.reply("Please provide a username.").setEphemeral(true).queue();
+                if (keyOption != null) {
+                    String newKey = keyOption.getAsString().trim();
+                    try {
+                        updateEnvFile("HYPIXEL_API_KEY", newKey);
+                    } catch (Exception e) {
+                        event.reply("Failed to update .env: " + e.getMessage()).setEphemeral(true).queue();
                         return;
                     }
-                    String ign = ignOption.getAsString();
-
-                    event.deferReply().queue();
-
-                    Thread.ofVirtual().start(() -> {
-                        try {
-                            String uuid = apiAccess.getUuidFromUsername(ign);
-                            HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
-
-                            String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
-                                    ? stats.cuteName()
-                                    : "Default";
-
-                            double nw = Double.isNaN(stats.totalNetworth()) || Double.isInfinite(stats.totalNetworth())
-                                    ? 0.0
-                                    : stats.totalNetworth();
-
-                            String formattedNw;
-                            try {
-                                formattedNw = formatter.format(nw);
-                            } catch (Exception ex) {
-                                formattedNw = String.format("%,.0f", nw);
-                            }
-                            if (formattedNw == null || formattedNw.isBlank()) {
-                                formattedNw = "0";
-                            }
-
-                            int sblevel = Math.max(0, stats.sbLevel());
-
-                            EmbedBuilder eb = new EmbedBuilder();
-                            eb.setTitle(ign + " [" + cuteName + "]");
-                            if (uuid != null && !uuid.isBlank()) {
-                                eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
-                            }
-
-                            eb.addField("SkyBlock Level", String.valueOf(sblevel), true);
-                            eb.addField("Networth", formattedNw, true);
-
-                            eb.setColor(getLevelColor(sblevel));
-
-                            event.getHook().sendMessageEmbeds(eb.build()).queue();
-
-                        } catch (IllegalArgumentException e) {
-                            e.printStackTrace();
-                            event.getHook().sendMessage("Input error: " + (e.getMessage() != null ? e.getMessage() : "Unknown")).queue();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            event.getHook().sendMessage("Error fetching stats: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())).queue();
-                        }
-                    });
                 }
 
-                case "gremlin" -> {
-                    OptionMapping ignOption = event.getOption("username");
-                    if (ignOption == null) {
-                        event.reply("Please provide a username.").setEphemeral(true).queue();
-                        return;
+                event.reply("Updating environment and restarting...").setEphemeral(true).queue(success -> {
+                    try {
+                        ProcessBuilder pb = new ProcessBuilder("setsid", "sh", "/home/ubuntu/LootGremlinsBot/update_bot.sh");
+                        pb.start();
+                        Thread.sleep(1000);
+                        event.getJDA().shutdown();
+                        System.exit(0);
+                    } catch (Exception e) {
+                        event.getChannel().sendMessage("Critical error during restart: " + e.getMessage()).queue();
                     }
-                    String ign = ignOption.getAsString();
+                });
+            }
 
-                    event.deferReply().queue();
+            case "stop" -> {
+                event.reply("Shutting off bot").queue();
+                event.getJDA().shutdown();
+                System.exit(0);
+            }
 
-                    net.dv8tion.jda.api.entities.Member member = event.getMember();
-                    net.dv8tion.jda.api.entities.Guild guild = event.getGuild();
+            case "stats" -> {
+                OptionMapping ignOption = event.getOption("username");
+                if (ignOption == null) {
+                    event.reply("Please provide a username.").setEphemeral(true).queue();
+                    return;
+                }
+                String ign = ignOption.getAsString();
 
-                    if (guild != null && member != null) {
-                        if (guild.getSelfMember().hasPermission(net.dv8tion.jda.api.Permission.NICKNAME_MANAGE)
-                                && guild.getSelfMember().canInteract(member)) {
+                event.deferReply().queue();
 
-                            member.modifyNickname(ign).queue(
-                                    success -> System.out.println("Updated nickname for " + member.getUser().getName() + " to " + ign),
-                                    error -> System.err.println("Could not update nickname: " + error.getMessage())
-                            );
-                        }
-                    }
+                Thread.ofVirtual().start(() -> {
+                    try {
+                        String uuid = apiAccess.getUuidFromUsername(ign);
+                        HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
 
-                    Thread.ofVirtual().start(() -> {
+                        String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
+                                ? stats.cuteName()
+                                : "Default";
+
+                        double nw = Double.isNaN(stats.totalNetworth()) || Double.isInfinite(stats.totalNetworth())
+                                ? 0.0
+                                : stats.totalNetworth();
+
+                        String formattedNw;
                         try {
-                            String uuid = apiAccess.getUuidFromUsername(ign);
-                            HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
+                            formattedNw = formatter.format(nw);
+                        } catch (Exception ex) {
+                            formattedNw = String.format("%,.0f", nw);
+                        }
+                        if (formattedNw == null || formattedNw.isBlank()) {
+                            formattedNw = "0";
+                        }
 
-                            String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
-                                    ? stats.cuteName()
-                                    : "Default";
+                        int sblevel = Math.max(0, stats.sbLevel());
 
-                            double nw = Double.isNaN(stats.totalNetworth()) || Double.isInfinite(stats.totalNetworth())
-                                    ? 0.0
-                                    : stats.totalNetworth();
+                        EmbedBuilder eb = new EmbedBuilder();
+                        eb.setTitle(ign + " [" + cuteName + "]");
+                        if (uuid != null && !uuid.isBlank()) {
+                            eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
+                        }
 
-                            String formattedNw;
-                            try {
-                                formattedNw = formatter.format(nw);
-                            } catch (Exception ex) {
-                                formattedNw = String.format("%,.0f", nw);
-                            }
-                            if (formattedNw == null || formattedNw.isBlank()) {
-                                formattedNw = "0";
-                            }
+                        eb.addField("SkyBlock Level", String.valueOf(sblevel), true);
+                        eb.addField("Networth", formattedNw, true);
+                        eb.setColor(getLevelColor(sblevel));
 
-                            int sblevel = Math.max(0, stats.sbLevel());
+                        event.getHook().sendMessageEmbeds(eb.build()).queue();
 
-                            if (guild != null && member != null) {
-                                String earnedRoleId = calculateGremlinRole(sblevel, nw);
+                    } catch (IllegalArgumentException e) {
+                        e.printStackTrace();
+                        event.getHook().sendMessage("Input error: " + (e.getMessage() != null ? e.getMessage() : "Unknown")).queue();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        event.getHook().sendMessage("Error fetching stats: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())).queue();
+                    }
+                });
+            }
 
-                                if (guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)
-                                        && guild.getSelfMember().canInteract(member)) {
+            case "gremlin" -> {
+                OptionMapping ignOption = event.getOption("username");
+                if (ignOption == null) {
+                    event.reply("Please provide a username.").setEphemeral(true).queue();
+                    return;
+                }
+                String ign = ignOption.getAsString();
 
-                                    for (Role currentRole : member.getRoles()) {
-                                        if (ID.ALL_GREMLIN_ROLES.contains(currentRole.getId())
-                                                && (earnedRoleId == null || !currentRole.getId().equals(earnedRoleId))) {
-                                            if (guild.getSelfMember().canInteract(currentRole)) {
-                                                guild.removeRoleFromMember(member, currentRole).queue();
-                                            }
+                event.deferReply().queue();
+
+                Member member = event.getMember();
+                Guild guild = event.getGuild();
+
+                if (guild != null && member != null) {
+                    if (guild.getSelfMember().hasPermission(Permission.NICKNAME_MANAGE)
+                            && guild.getSelfMember().canInteract(member)) {
+
+                        member.modifyNickname(ign).queue(
+                                success -> System.out.println("Updated nickname for " + member.getUser().getName() + " to " + ign),
+                                error -> System.err.println("Could not update nickname: " + error.getMessage())
+                        );
+                    }
+                }
+
+                Thread.ofVirtual().start(() -> {
+                    try {
+                        String uuid = apiAccess.getUuidFromUsername(ign);
+                        HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
+
+                        String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
+                                ? stats.cuteName()
+                                : "Default";
+
+                        double nw = Double.isNaN(stats.totalNetworth()) || Double.isInfinite(stats.totalNetworth())
+                                ? 0.0
+                                : stats.totalNetworth();
+
+                        String formattedNw;
+                        try {
+                            formattedNw = formatter.format(nw);
+                        } catch (Exception ex) {
+                            formattedNw = String.format("%,.0f", nw);
+                        }
+                        if (formattedNw == null || formattedNw.isBlank()) {
+                            formattedNw = "0";
+                        }
+
+                        int sblevel = Math.max(0, stats.sbLevel());
+
+                        if (guild != null && member != null) {
+                            String earnedRoleId = calculateGremlinRole(sblevel, nw);
+
+                            if (guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)
+                                    && guild.getSelfMember().canInteract(member)) {
+
+                                for (Role currentRole : member.getRoles()) {
+                                    if (ID.ALL_GREMLIN_ROLES.contains(currentRole.getId())
+                                            && (earnedRoleId == null || !currentRole.getId().equals(earnedRoleId))) {
+                                        if (guild.getSelfMember().canInteract(currentRole)) {
+                                            guild.removeRoleFromMember(member, currentRole).queue();
                                         }
                                     }
+                                }
 
-                                    if (earnedRoleId != null && !earnedRoleId.isBlank()) {
-                                        Role targetRole = guild.getRoleById(earnedRoleId);
-                                        if (targetRole != null && !member.getRoles().contains(targetRole)) {
-                                            if (guild.getSelfMember().canInteract(targetRole)) {
-                                                guild.addRoleToMember(member, targetRole).queue();
-                                            }
+                                if (earnedRoleId != null && !earnedRoleId.isBlank()) {
+                                    Role targetRole = guild.getRoleById(earnedRoleId);
+                                    if (targetRole != null && !member.getRoles().contains(targetRole)) {
+                                        if (guild.getSelfMember().canInteract(targetRole)) {
+                                            guild.addRoleToMember(member, targetRole).queue();
                                         }
                                     }
                                 }
                             }
-
-                            // Build Embed
-                            EmbedBuilder eb = new EmbedBuilder();
-                            String earnedRole = calculateGremlinRole(sblevel, nw);
-
-                            String roleTitle =
-                                    (earnedRole.equals(ID.RICH_GREMLIN) ? "Rich Gremlin" :
-                                            earnedRole.equals(ID.COOL_GREMLIN) ? "Cool Gremlin" :
-                                                    earnedRole.equals(ID.GREMLIN) ? "Gremlin" :
-                                                            "Lil' Gremlin");
-
-                            eb.setTitle("Congrats " + ign + " [" + cuteName + roleTitle + "!");
-
-                            if (uuid != null && !uuid.isBlank()) {
-                                eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
-                            }
-
-                            eb.addField("SkyBlock Level", String.valueOf(sblevel), true);
-                            eb.addField("Networth", formattedNw, true);
-
-                            eb.setColor(getLevelColor(sblevel));
-                            // Embed Finish
-
-                            // Alert Embed
-                            EmbedBuilder alertEmbed = new EmbedBuilder();
-
-                            alertEmbed.setTitle(member.getEffectiveName() + " got their role updated!");
-                            alertEmbed.addField("Role", roleTitle, false);
-                            eb.setColor(getLevelColor(sblevel));
-                            // Alert Embed Finish
-
-                            event.getHook().sendMessageEmbeds(eb.build()).queue(hook ->
-                                    guild.getTextChannelById(ID.ROLE_ALERT).sendMessageEmbeds(alertEmbed.build()).queue()
-                            );
-
-                        } catch (IllegalArgumentException e) {
-                            e.printStackTrace();
-                            event.getHook().sendMessage("Input error: " + (e.getMessage() != null ? e.getMessage() : "Unknown")).queue();
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            event.getHook().sendMessage("Error fetching stats: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())).queue();
                         }
-                    });
-                }
 
+                        // Build Embed
+                        EmbedBuilder eb = new EmbedBuilder();
+                        String earnedRole = calculateGremlinRole(sblevel, nw);
+
+                        String roleTitle = (ID.RICH_GREMLIN.equals(earnedRole)) ? "Rich Gremlin" :
+                                (ID.COOL_GREMLIN.equals(earnedRole)) ? "Cool Gremlin" :
+                                        (ID.GREMLIN.equals(earnedRole)) ? "Gremlin" :
+                                                "Lil' Gremlin";
+
+                        eb.setTitle("Congrats " + ign + " [" + cuteName + "] - " + roleTitle + "!");
+
+                        if (uuid != null && !uuid.isBlank()) {
+                            eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
+                        }
+
+                        eb.addField("SkyBlock Level", String.valueOf(sblevel), true);
+                        eb.addField("Networth", formattedNw, true);
+                        eb.setColor(getLevelColor(sblevel));
+
+                        // Alert Embed
+                        EmbedBuilder alertEmbed = new EmbedBuilder();
+                        alertEmbed.setTitle(member != null ? member.getEffectiveName() + " got their role updated!" : ign + " got their role updated!");
+                        alertEmbed.addField("Role", roleTitle, false);
+                        alertEmbed.setColor(getLevelColor(sblevel));
+
+                        event.getHook().sendMessageEmbeds(eb.build()).queue(hook -> {
+                            if (guild != null) {
+                                TextChannel alertChannel = guild.getTextChannelById(ID.ROLE_ALERT);
+                                if (alertChannel != null && alertChannel.canTalk()) {
+                                    alertChannel.sendMessageEmbeds(alertEmbed.build()).queue();
+                                }
+                            }
+                        });
+
+                    } catch (IllegalArgumentException e) {
+                        e.printStackTrace();
+                        event.getHook().sendMessage("Input error: " + (e.getMessage() != null ? e.getMessage() : "Unknown")).queue();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        event.getHook().sendMessage("Error fetching stats: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())).queue();
+                    }
+                });
             }
 
-        }
-        else {
-            event.reply("Commands are currently disabled.").setEphemeral(true).queue();
+            default -> event.reply("Unknown command.").setEphemeral(true).queue();
         }
     }
 
@@ -404,19 +402,19 @@ public class CommandsListener extends ListenerAdapter {
     }
 
     public static Color getLevelColor(int level) {
-        if (level >= 480) return new Color(0xAA0000); // Dark Red
-        if (level >= 440) return new Color(0xFF5555); // Red
-        if (level >= 400) return new Color(0xFFAA00); // Gold
-        if (level >= 360) return new Color(0xAA00AA); // Dark Purple
-        if (level >= 320) return new Color(0xFF55FF); // Light Purple / Pink
-        if (level >= 280) return new Color(0x5555FF); // Blue
-        if (level >= 240) return new Color(0x00AAAA); // Cyan
-        if (level >= 200) return new Color(0x55FFFF); // Aqua
-        if (level >= 160) return new Color(0x00AA00); // Dark Green
-        if (level >= 120) return new Color(0x55FF55); // Lime Green
-        if (level >= 80)  return new Color(0xFFFF55); // Yellow
-        if (level >= 40)  return new Color(0xFFFFFF); // White
-        return new Color(0xAAAAAA);                    // Gray
+        if (level >= 480) return new Color(0xAA0000);
+        if (level >= 440) return new Color(0xFF5555);
+        if (level >= 400) return new Color(0xFFAA00);
+        if (level >= 360) return new Color(0xAA00AA);
+        if (level >= 320) return new Color(0xFF55FF);
+        if (level >= 280) return new Color(0x5555FF);
+        if (level >= 240) return new Color(0x00AAAA);
+        if (level >= 200) return new Color(0x55FFFF);
+        if (level >= 160) return new Color(0x00AA00);
+        if (level >= 120) return new Color(0x55FF55);
+        if (level >= 80)  return new Color(0xFFFF55);
+        if (level >= 40)  return new Color(0xFFFFFF);
+        return new Color(0xAAAAAA);
     }
 
     public static String calculateGremlinRole(int level, double networth) {
@@ -425,5 +423,4 @@ public class CommandsListener extends ListenerAdapter {
         if (level >= 200) return ID.GREMLIN;
         return ID.LIL_GREMLIN;
     }
-
 }
