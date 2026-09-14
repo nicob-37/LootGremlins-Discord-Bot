@@ -261,7 +261,7 @@ public class CommandsListener extends ListenerAdapter {
                 }
                 String ign = ignOption.getAsString();
 
-                event.deferReply().queue();
+                event.deferReply().setEphemeral(true).queue();
 
                 Member member = event.getMember();
                 Guild guild = event.getGuild();
@@ -350,7 +350,7 @@ public class CommandsListener extends ListenerAdapter {
                         alertEmbed.addField("Role", roleTitle, false);
                         alertEmbed.setColor(getLevelColor(sblevel));
 
-                        event.getHook().sendMessageEmbeds(eb.build()).setEphemeral(true).queue(hook -> {
+                        event.getHook().sendMessageEmbeds(eb.build()).queue(hook -> {
                             if (guild != null) {
                                 TextChannel alertChannel = guild.getTextChannelById(ID.ROLE_ALERT);
                                 if (alertChannel != null && alertChannel.canTalk()) {
