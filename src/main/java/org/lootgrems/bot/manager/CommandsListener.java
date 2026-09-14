@@ -112,10 +112,10 @@ public class CommandsListener extends ListenerAdapter {
                 .addOptions(settingOptions));
 
         // GUILD COMMANDS
-        commands.add(new SlashCommandEx("stats", "Networth and Level of player")
+        commands.add(new SlashCommandEx("stats", "Networth and Level of player (use for manually checking players)")
                 .addOption(OptionType.STRING, "username", "Username of player", true));
 
-        commands.add(new SlashCommandEx("gremlin", "Use this to get your Gremlin Role in the Guild!")
+        commands.add(new SlashCommandEx("gremlin", "Use this to get your Gremlin Role in the Guild")
                 .addOption(OptionType.STRING, "username", "Your Minecraft IGN", true));
 
         // ------------------------------------------------------------
@@ -350,7 +350,7 @@ public class CommandsListener extends ListenerAdapter {
                         alertEmbed.addField("Role", roleTitle, false);
                         alertEmbed.setColor(getLevelColor(sblevel));
 
-                        event.getHook().sendMessageEmbeds(eb.build()).queue(hook -> {
+                        event.getHook().sendMessageEmbeds(eb.build()).setEphemeral(true).queue(hook -> {
                             if (guild != null) {
                                 TextChannel alertChannel = guild.getTextChannelById(ID.ROLE_ALERT);
                                 if (alertChannel != null && alertChannel.canTalk()) {
