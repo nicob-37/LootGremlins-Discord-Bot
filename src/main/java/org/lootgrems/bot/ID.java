@@ -7,6 +7,7 @@ public class ID {
 
     public static final String ROLE_ALERT = "1546597144188682290";
     public static final String GREMLIN_LOG = "1546597160152334457";
+    public static final String ONE_TIME_VERIFICATION = "1548897273965060146";
 
     public static final String NICO = "550105726291279893";
     public static final String UNHEALTHYER = "533631070307090434";
