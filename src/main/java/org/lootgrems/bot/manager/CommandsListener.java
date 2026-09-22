@@ -210,6 +210,7 @@ public class CommandsListener extends ListenerAdapter {
                     try {
                         String uuid = apiAccess.getUuidFromUsername(ign);
                         HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
+                        String inGameGuildName = apiAccess.getPlayerGuildName(uuid);
 
                         String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
                                 ? stats.cuteName()
@@ -239,6 +240,7 @@ public class CommandsListener extends ListenerAdapter {
 
                         eb.addField("SkyBlock Level", String.valueOf(sblevel), true);
                         eb.addField("Networth", formattedNw, true);
+                        eb.addField("Guild", inGameGuildName, true);
                         eb.setColor(getLevelColor(sblevel));
 
                         event.getHook().sendMessageEmbeds(eb.build()).queue();
