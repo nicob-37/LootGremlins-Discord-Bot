@@ -285,7 +285,11 @@ public class CommandsListener extends ListenerAdapter {
                         HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
                         String inGameGuildName = apiAccess.getPlayerGuildName(uuid);
 
-                        boolean isLootGremlin = "Loot Gremlins".equalsIgnoreCase(inGameGuildName);
+                        boolean isLootGremlin;
+
+                        if (inGameGuildName.equals("Loot Gremlins")) {
+                            isLootGremlin = true;
+                        } else isLootGremlin = false;
 
                         String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
                                 ? stats.cuteName()
@@ -310,13 +314,8 @@ public class CommandsListener extends ListenerAdapter {
                         String earnedRoleId;
                         String roleTitle;
 
-                        if (isLootGremlin) {
-                            earnedRoleId = calculateGremlinRole(sblevel, nw);
-                            roleTitle = getGremlinRoleTitle(earnedRoleId);
-                        } else {
-                            earnedRoleId = ID.CASUAL;
-                            roleTitle = "Guest / Non-Guild";
-                        }
+                        earnedRoleId = isLootGremlin ? calculateGremlinRole(sblevel, nw) : ID.CASUAL;
+                        roleTitle = isLootGremlin ? getGremlinRoleTitle(earnedRoleId) : "Guest / Non-Guild";
 
                         if (guild != null && member != null) {
                             if (guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)
