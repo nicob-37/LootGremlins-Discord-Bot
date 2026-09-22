@@ -18,5 +18,6 @@ public class ID {
     public static final String COOL_GREMLIN = "1439738647577362472";
     public static final String GREMLIN = "1439739080727461949";
     public static final String LIL_GREMLIN = "1439748215619588199";
+    public static final String CASUAL = "1439712094365679658";
     public static List<String> ALL_GREMLIN_ROLES = List.of(RICH_GREMLIN, COOL_GREMLIN, GREMLIN, LIL_GREMLIN);
 }

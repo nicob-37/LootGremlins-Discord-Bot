@@ -181,4 +181,29 @@ public class HypixelAPIAccess {
 
         return new SkyblockStats(profileId, cuteName, sbLevel, totalNetworth, purse, bank);
     }
+
+    public String getPlayerGuildName(String uuid) throws IOException, InterruptedException {
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(HYPIXEL_BASE_URL + "/guild?player=" + uuid))
+                .header("API-Key", this.apiKey)
+                .header("User-Agent", "LootGremlinsBot/1.0")
+                .header("Accept", "application/json")
+                .GET()
+                .build();
+
+        HttpResponse<String> res = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+        String body = res.body();
+
+        if (res.statusCode() != 200 || body == null || body.trim().startsWith("<")) {
+            return null;
+        }
+
+        JsonNode root = mapper.readTree(body);
+        JsonNode guildNode = root.path("guild");
+        if (guildNode.isMissingNode() || guildNode.isNull()) {
+            return null; // Player is not in any guild
+        }
+
+        return guildNode.path("name").asText(null);
+    }
 }

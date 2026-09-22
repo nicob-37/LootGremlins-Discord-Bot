@@ -281,6 +281,9 @@ public class CommandsListener extends ListenerAdapter {
                     try {
                         String uuid = apiAccess.getUuidFromUsername(ign);
                         HypixelAPIAccess.SkyblockStats stats = apiAccess.getActiveProfileStats(uuid);
+                        String inGameGuildName = apiAccess.getPlayerGuildName(uuid);
+
+                        boolean isLootGremlin = "Loot Gremlins".equalsIgnoreCase(inGameGuildName);
 
                         String cuteName = (stats.cuteName() != null && !stats.cuteName().isBlank())
                                 ? stats.cuteName()
@@ -302,9 +305,18 @@ public class CommandsListener extends ListenerAdapter {
 
                         int sblevel = Math.max(0, stats.sbLevel());
 
-                        if (guild != null && member != null) {
-                            String earnedRoleId = calculateGremlinRole(sblevel, nw);
+                        String earnedRoleId;
+                        String roleTitle;
 
+                        if (isLootGremlin) {
+                            earnedRoleId = calculateGremlinRole(sblevel, nw);
+                            roleTitle = getGremlinRoleTitle(earnedRoleId);
+                        } else {
+                            earnedRoleId = ID.CASUAL;
+                            roleTitle = "Guest / Non-Guild";
+                        }
+
+                        if (guild != null && member != null) {
                             if (guild.getSelfMember().hasPermission(Permission.MANAGE_ROLES)
                                     && guild.getSelfMember().canInteract(member)) {
 
@@ -328,13 +340,13 @@ public class CommandsListener extends ListenerAdapter {
                             }
                         }
 
-                        // Build Embed
                         EmbedBuilder eb = new EmbedBuilder();
-                        String earnedRole = calculateGremlinRole(sblevel, nw);
-
-                        String roleTitle = getGremlinRoleTitle(earnedRole);
-
-                        eb.setTitle("Congrats " + ign + " [" + cuteName + "] - " + roleTitle + "!");
+                        if (isLootGremlin) {
+                            eb.setTitle("Congrats " + ign + " [" + cuteName + "] - " + roleTitle + "!");
+                        } else {
+                            eb.setTitle(ign + " [" + cuteName + "] - Not in Guild");
+                            eb.setDescription("You are currently not in the **Loot Gremlins** in-game guild. Assigned **" + roleTitle + "** role instead.");
+                        }
 
                         if (uuid != null && !uuid.isBlank()) {
                             eb.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100");
@@ -344,10 +356,10 @@ public class CommandsListener extends ListenerAdapter {
                         eb.addField("Networth", formattedNw, true);
                         eb.setColor(getLevelColor(sblevel));
 
-                        // Alert Embed
                         EmbedBuilder alertEmbed = new EmbedBuilder();
-                        alertEmbed.setTitle(member != null ? member.getEffectiveName() + " got their role updated!" : ign + " got their role updated!");
-                        alertEmbed.addField("Role", roleTitle, false);
+                        alertEmbed.setTitle((member != null ? member.getEffectiveName() : ign) + " verified!");
+                        alertEmbed.addField("Role Assigned", roleTitle, true);
+                        alertEmbed.addField("In-Game Guild", (inGameGuildName != null ? inGameGuildName : "None"), true);
                         alertEmbed.setColor(getLevelColor(sblevel));
 
                         event.getHook().sendMessageEmbeds(eb.build()).queue(hook -> {
