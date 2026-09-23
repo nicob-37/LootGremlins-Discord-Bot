@@ -240,7 +240,7 @@ public class CommandsListener extends ListenerAdapter {
 
                         eb.addField("SkyBlock Level", String.valueOf(sblevel), true);
                         eb.addField("Networth", formattedNw, true);
-                        eb.addField("Guild", inGameGuildName, true);
+                        eb.addField("Guild", (inGameGuildName != null ? inGameGuildName : "None"), true);
                         eb.setColor(getLevelColor(sblevel));
 
                         event.getHook().sendMessageEmbeds(eb.build()).queue();
